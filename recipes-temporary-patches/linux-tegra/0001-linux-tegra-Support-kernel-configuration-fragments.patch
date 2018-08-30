@@ -1,0 +1,51 @@
+From 06c70d9eacbe3c007a9ab8442b6f5b522c31b05d Mon Sep 17 00:00:00 2001
+From: Alberto Mardegan <amardegan@luxoft.com>
+Date: Wed, 29 Aug 2018 17:28:07 +0300
+Subject: [PATCH] linux-tegra: Support kernel configuration fragments
+
+The standard way of customizing the kernel configuration in Yocto is via
+configuration file fragments.
+
+Fixes: #100
+---
+ recipes-kernel/linux/linux-tegra_4.4.bb | 9 +++++++++
+ 1 file changed, 9 insertions(+)
+
+diff --git a/recipes-kernel/linux/linux-tegra_4.4.bb b/recipes-kernel/linux/linux-tegra_4.4.bb
+index bd10300..e2d01f8 100644
+--- a/recipes-kernel/linux/linux-tegra_4.4.bb
++++ b/recipes-kernel/linux/linux-tegra_4.4.bb
+@@ -4,7 +4,10 @@ DESCRIPTION = "Linux kernel from sources provided by Nvidia for Tegra processors
+ LICENSE = "GPLv2"
+ LIC_FILES_CHKSUM = "file://COPYING;md5=d7810fab7487fb0aad327b76f1be7cd7"
+ 
++KERNEL_VERSION_SANITY_SKIP="1"
++
+ inherit kernel
++require recipes-kernel/linux/linux-yocto.inc
+ 
+ PV .= "+git${SRCPV}"
+ FILESEXTRAPATHS_prepend := "${THISDIR}/${BPN}-${@bb.parse.BBHandler.vars_from_file(d.getVar('FILE', False),d)[1]}:"
+@@ -25,6 +28,7 @@ S = "${WORKDIR}/git"
+ KERNEL_ROOTSPEC ?= "root=/dev/mmcblk\${devnum}p1 rw rootwait"
+ 
+ do_configure_prepend() {
++    mv -f ${B}/.config ${B}/.config.patched
+     localversion="-${L4T_VERSION}"
+     if [ "${SCMVERSION}" = "y" ]; then
+ 	head=`git --git-dir=${S}/.git rev-parse --verify --short HEAD 2> /dev/null`
+@@ -32,6 +36,11 @@ do_configure_prepend() {
+     fi
+     sed -e"s,^CONFIG_LOCALVERSION=.*$,CONFIG_LOCALVERSION=\"${localversion}\"," \
+ 	< ${WORKDIR}/defconfig > ${B}/.config
++
++    # Keep this the last line
++    # Remove all modified configs and add the rest to .config
++    sed -e "${CONF_SED_SCRIPT}" < '${B}/.config.patched' >> '${B}/.config'
++    rm -f ${B}/.config.patched
+ }
+ 
+ do_install_append() {
+-- 
+2.7.4
+
